@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Place Tracker</title>
+  <meta name="description" content="Enter a US zip code. Get the top 3 places to see, eat and explore." />
+  <style>
+    :root {
+      --bg: #ffffff; --fg: #1d1d1f; --muted: #6b6b70; --line: #e4e4e8;
+      --card: #fafafb; --accent: #1a73e8; --accent-fg: #ffffff; --warn: #b3261e; --star: #e8a400;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #121214; --fg: #f1f1f3; --muted: #a0a0a8; --line: #2c2c31;
+        --card: #1b1b1f; --accent: #8ab4f8; --accent-fg: #0b1a33; --warn: #f2b8b5; --star: #f5c542;
+      }
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--fg);
+      font: 16px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    main { max-width: 640px; margin: 0 auto; padding: 0 16px 48px; }
+    header { text-align: center; padding: 18vh 0 24px; transition: padding .25s ease; }
+    body.has-results header { padding: 24px 0 8px; }
+    h1 { margin: 0 0 6px; font-size: 2rem; letter-spacing: -0.02em; }
+    body.has-results h1 { font-size: 1.4rem; }
+    .tagline { margin: 0 0 20px; color: var(--muted); }
+    body.has-results .tagline { display: none; }
+    form { display: flex; gap: 8px; max-width: 360px; margin: 0 auto; }
+    input { flex: 1; min-width: 0; font-size: 1.25rem; padding: 12px 16px; border: 1px solid var(--line);
+      border-radius: 999px; background: var(--bg); color: var(--fg); text-align: center; letter-spacing: 0.1em; }
+    input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+    button { font: inherit; border: 0; border-radius: 999px; cursor: pointer; }
+    .go { padding: 0 20px; background: var(--accent); color: var(--accent-fg); font-weight: 600; }
+    .msg { text-align: center; color: var(--muted); min-height: 1.5em; margin: 12px 0; }
+    .msg.error { color: var(--warn); }
+    .place-head { text-align: center; color: var(--muted); margin: 8px 0 16px; }
+    .demo { text-align: center; font-size: .85rem; color: var(--warn); margin: -8px 0 16px; }
+    section.card { background: var(--card); border: 1px solid var(--line); border-radius: 16px;
+      padding: 14px 16px; margin: 0 0 12px; }
+    .card h2 { font-size: 1.05rem; margin: 0 0 8px; display: flex; justify-content: space-between; gap: 8px; }
+    .badge { font-size: .75rem; font-weight: 500; color: var(--muted); border: 1px solid var(--line);
+      border-radius: 999px; padding: 1px 8px; white-space: nowrap; }
+    ol { list-style: none; margin: 0; padding: 0; }
+    li { padding: 8px 0; border-top: 1px solid var(--line); }
+    li:first-child { border-top: 0; }
+    li a { color: var(--fg); text-decoration: none; display: block; }
+    li a:hover .name, li a:focus .name { color: var(--accent); text-decoration: underline; }
+    .name { font-weight: 600; }
+    .rank { color: var(--muted); margin-right: 6px; }
+    .meta { color: var(--muted); font-size: .9rem; }
+    .stars { color: var(--star); }
+    .empty { color: var(--muted); font-size: .9rem; margin: 4px 0; }
+    .more { display: block; margin: 16px auto 0; padding: 10px 20px; background: transparent;
+      color: var(--accent); border: 1px solid var(--line); }
+    footer { text-align: center; color: var(--muted); font-size: .8rem; margin-top: 32px; }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <h1>Place Tracker</h1>
+      <p class="tagline">The top 3 places to see, eat and explore in any US zip code.</p>
+      <form id="search" autocomplete="off">
+        <input id="zip" name="zip" inputmode="numeric" pattern="\d{5}" maxlength="5"
+               placeholder="Zip code" aria-label="US zip code" required autofocus />
+        <button class="go" type="submit">Go</button>
+      </form>
+    </header>
+    <p id="msg" class="msg" role="status" aria-live="polite"></p>
+    <div id="results"></div>
+    <footer>Rankings use public ratings and review counts. Place data © Google.</footer>
+  </main>
+
+  <script>
+    const form = document.getElementById("search");
+    const input = document.getElementById("zip");
+    const msg = document.getElementById("msg");
+    const results = document.getElementById("results");
+    let current = null;
+
+    function setMsg(text, isError) {
+      msg.textContent = text || "";
+      msg.className = "msg" + (isError ? " error" : "");
+    }
+
+    function el(tag, cls, text) {
+      const e = document.createElement(tag);
+      if (cls) e.className = cls;
+      if (text != null) e.textContent = text;
+      return e;
+    }
+
+    function renderCard(card) {
+      const sec = el("section", "card");
+      const h = el("h2", null, card.title);
+      if (card.nearby) h.appendChild(el("span", "badge", "includes nearby"));
+      sec.appendChild(h);
+      if (!card.places.length) {
+        sec.appendChild(el("p", "empty", "Not enough well-reviewed places found here."));
+        return sec;
+      }
+      const ol = el("ol");
+      card.places.forEach((p, i) => {
+        const li = el("li");
+        const a = el("a");
+        a.href = p.mapsUrl;
+        a.target = "_blank";
+        a.rel = "noopener";
+        const line = el("div");
+        line.appendChild(el("span", "rank", i + 1 + "."));
+        line.appendChild(el("span", "name", p.name));
+        a.appendChild(line);
+        const meta = el("div", "meta");
+        meta.appendChild(el("span", "stars", "★ " + (p.rating ?? "–").toString()));
+        const bits = [(p.reviews || 0).toLocaleString() + " reviews"];
+        if (p.type) bits.push(p.type);
+        if (p.miles != null) bits.push(p.miles + " mi");
+        meta.appendChild(document.createTextNode(" · " + bits.join(" · ")));
+        a.appendChild(meta);
+        li.appendChild(a);
+        ol.appendChild(li);
+      });
+      sec.appendChild(ol);
+      return sec;
+    }
+
+    async function fetchGroup(zip, group) {
+      const res = await fetch(`/api/search?zip=${encodeURIComponent(zip)}&group=${group}`);
+      const data = await res.json().catch(() => ({ message: "Something went wrong. Please try again." }));
+      if (!res.ok) throw new Error(data.message || "Something went wrong.");
+      return data;
+    }
+
+    async function search(zip) {
+      current = zip;
+      results.replaceChildren();
+      setMsg("Finding the best places…");
+      try {
+        const data = await fetchGroup(zip, "core");
+        if (current !== zip) return;
+        document.body.classList.add("has-results");
+        setMsg("");
+        results.appendChild(el("p", "place-head", `Top picks for ${data.city}, ${data.state} ${data.zip}`));
+        if (data.demo) results.appendChild(el("p", "demo", "Sample data: no Google API key is set yet."));
+        data.cards.forEach((c) => results.appendChild(renderCard(c)));
+
+        const more = el("button", "more", "More: coffee, outdoors, kids, photo spots, nightlife");
+        more.type = "button";
+        more.addEventListener("click", async () => {
+          more.disabled = true;
+          more.textContent = "Loading…";
+          try {
+            const extra = await fetchGroup(zip, "more");
+            if (current !== zip) return;
+            const frag = document.createDocumentFragment();
+            extra.cards.forEach((c) => frag.appendChild(renderCard(c)));
+            more.replaceWith(frag);
+          } catch (e) {
+            more.disabled = false;
+            more.textContent = "Couldn't load more. Tap to retry.";
+          }
+        });
+        results.appendChild(more);
+      } catch (e) {
+        if (current === zip) setMsg(e.message, true);
+      }
+    }
+
+    input.addEventListener("input", () => {
+      input.value = input.value.replace(/\D/g, "").slice(0, 5);
+    });
+
+    form.addEventListener("submit", (e) => {
+      e.preventDefault();
+      const zip = input.value.trim();
+      if (!/^\d{5}$/.test(zip)) return setMsg("Please enter a 5-digit US zip code.", true);
+      history.replaceState(null, "", "?zip=" + zip);
+      input.blur();
+      search(zip);
+    });
+
+    const initial = new URLSearchParams(location.search).get("zip");
+    if (initial && /^\d{5}$/.test(initial)) {
+      input.value = initial;
+      search(initial);
+    }
+  </script>
+</body>
+</html>
