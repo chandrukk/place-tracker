@@ -5,13 +5,18 @@
   "description": "Enter a US zip code, get the top 3 places to see, eat and explore.",
   "type": "module",
   "engines": {
-    "node": ">=18"
+    "node": ">=20"
   },
   "scripts": {
     "dev": "node dev-server.js",
-    "test": "node --test test/*.test.js"
+    "test": "node --test test/*.test.js",
+    "test:e2e": "playwright test",
+    "test:all": "npm test && npm run test:e2e"
   },
   "dependencies": {
     "zipcodes": "^8.0.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.63.0"
   }
 }

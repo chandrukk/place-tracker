@@ -11,6 +11,12 @@ export default async function handler(req, res) {
 
   res.setHeader("Content-Type", "application/json; charset=utf-8");
 
+  if (req.method !== "GET" && req.method !== "HEAD") {
+    res.statusCode = 405;
+    res.setHeader("Allow", "GET");
+    return res.end(JSON.stringify({ error: "method_not_allowed", message: "Use GET." }));
+  }
+
   if (!ZIP_PATTERN.test(zip)) {
     res.statusCode = 400;
     return res.end(JSON.stringify({ error: "invalid_zip", message: "Please enter a 5-digit US zip code." }));
@@ -22,8 +28,12 @@ export default async function handler(req, res) {
 
   try {
     const result = await searchZip(zip, { group, apiKey: process.env.GOOGLE_MAPS_API_KEY });
-    // Let the CDN reuse results for a zip for a day, so repeat searches cost nothing.
-    res.setHeader("Cache-Control", "public, s-maxage=86400, stale-while-revalidate=3600");
+    // Let the CDN reuse complete, live results for a zip for a day, so repeat searches cost nothing.
+    // Sample (demo) and partial results are never CDN-cached: they'd outlive adding the key or a fix.
+    res.setHeader(
+      "Cache-Control",
+      result.demo || result.partial ? "no-store" : "public, s-maxage=86400, stale-while-revalidate=3600"
+    );
     res.statusCode = 200;
     return res.end(JSON.stringify(result));
   } catch (err) {
