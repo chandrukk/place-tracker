@@ -1,0 +1,17 @@
+{
+  "name": "place-tracker",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Enter a US zip code, get the top 3 places to see, eat and explore.",
+  "type": "module",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "dev": "node dev-server.js",
+    "test": "node --test test/*.test.js"
+  },
+  "dependencies": {
+    "zipcodes": "^8.0.0"
+  }
+}
