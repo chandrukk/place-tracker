@@ -31,8 +31,11 @@ Places within 5 miles of the zip's centre come first; if a card has fewer than 3
 npm install
 npm run dev          # http://localhost:3000, sample data
 GOOGLE_MAPS_API_KEY=your-key npm run dev   # real data
-npm test
+npm test            # unit, regression and API tests (no browser, ~1s)
+npm run test:e2e    # browser tests on a phone and a desktop screen (sample data)
 ```
+
+GitHub runs both suites on every pull request and every push to `main` (`.github/workflows/tests.yml`).
 
 Without `GOOGLE_MAPS_API_KEY` the app runs on sample data and says so on screen.
 

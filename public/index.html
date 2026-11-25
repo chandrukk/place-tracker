@@ -61,7 +61,7 @@
     <header>
       <h1>Place Tracker</h1>
       <p class="tagline">The top 3 places to see, eat and explore in any US zip code.</p>
-      <form id="search" autocomplete="off">
+      <form id="search" autocomplete="off" novalidate>
         <input id="zip" name="zip" inputmode="numeric" pattern="\d{5}" maxlength="5"
                placeholder="Zip code" aria-label="US zip code" required autofocus />
         <button class="go" type="submit">Go</button>
@@ -97,7 +97,10 @@
       if (card.nearby) h.appendChild(el("span", "badge", "includes nearby"));
       sec.appendChild(h);
       if (!card.places.length) {
-        sec.appendChild(el("p", "empty", "Not enough well-reviewed places found here."));
+        const text = card.failed
+          ? "Couldn't load this list right now. Search again to retry."
+          : "Not enough well-reviewed places found here.";
+        sec.appendChild(el("p", "empty", text));
         return sec;
       }
       const ol = el("ol");
@@ -112,7 +115,7 @@
         line.appendChild(el("span", "name", p.name));
         a.appendChild(line);
         const meta = el("div", "meta");
-        meta.appendChild(el("span", "stars", "★ " + (p.rating ?? "–").toString()));
+        meta.appendChild(el("span", "stars", "★ " + (p.rating != null ? Number(p.rating).toFixed(1) : "–")));
         const bits = [(p.reviews || 0).toLocaleString() + " reviews"];
         if (p.type) bits.push(p.type);
         if (p.miles != null) bits.push(p.miles + " mi");
